@@ -111,10 +111,11 @@ where a is the intended low-order byte and d the high-order byte."
 	 (ftype (function (ub32 ub32) ub32) mod32+))
 (defun mod32+ (a b)
   (declare (type ub32 a b) (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  #+cmu
-  (ext:truly-the ub32 (+ a b))
-  #-cmu
   (ldb (byte 32 0) (+ a b)))
+
+#+cmu
+(define-compiler-macro mod32+ (a b)
+  `(ext:truly-the ub32 (+ ,a ,b)))
 
 (declaim (inline rol32)
 	 (ftype (function (ub32 (unsigned-byte 5)) ub32) rol32))
