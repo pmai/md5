@@ -1,16 +1,49 @@
-;;;; This code implements MD5 checksums as defined in RFC 1321
-;;;; It was written by Pierre R. Mai and placed into the public domain.
+;;;; This file implements The MD5 Message-Digest Algorithm, as defined in
+;;;; RFC 1321 by R. Rivest, published April 1992.
+;;;;
+;;;; It was written by Pierre R. Mai, with copious input from the
+;;;; cmucl-help mailing-list hosted at cons.org, in November 2001 and
+;;;; has been placed into the public domain.
+;;;;
+;;;; While the implementation should work on all conforming Common
+;;;; Lisp implementations, it has only been optimized for CMU CL,
+;;;; where it achieved comparable performance to the standard md5sum
+;;;; utility (within a factor of 1.5 or less on iA32 and UltraSparc
+;;;; hardware).
+;;;;
+;;;; Since the implementation makes heavy use of arithmetic on
+;;;; (unsigned-byte 32) numbers, acceptable performance is likely only
+;;;; on CL implementations that support unboxed arithmetic on such
+;;;; numbers in some form.  For other CL implementations a 16bit
+;;;; implementation of MD5 is probably more suitable.
+;;;;
+;;;; The code implements correct operation for files of unbounded size
+;;;; as is, at the cost of having to do a single generic integer
+;;;; addition for each call to update-md5-state.  If you call
+;;;; update-md5-state frequently with little data, this can pose a
+;;;; performance problem.  If you can live with a size restriction of
+;;;; 512 MB, then you can enable fast fixnum arithmetic by putting
+;;;; :md5-small-length onto *features* prior to compiling this file.
+;;;;
+;;;; Testing code can be compiled by including :md5-testing on
+;;;; *features* prior to compilation.  In that case evaluating
+;;;; (md5::test-rfc1321) will run all the test-cases present in
+;;;; Appendix A.5 of RFC 1321 and report on the results.
+;;;;
+;;;; This software is "as is", and has no warranty of any kind.  The
+;;;; authors assume no responsibility for the consequences of any use
+;;;; of this software.
 
 (defpackage :MD5 (:use :CL)
   (:export
    ;; Low-Level types and functions
-   #:md5-regs #:initial-md5-regs #:md5regs-checksum
+   #:md5-regs #:initial-md5-regs #:md5regs-digest
    #:update-md5-block #:fill-block #:fill-block-ub8 #:fill-block-char
    ;; Mid-Level types and functions
    #:md5-state #:md5-state-p #:make-md5-state
    #:update-md5-state #:finalize-md5-state
-   ;; High-Level functions on streams/files
-   #:md5sum-stream #:md5sum-file))
+   ;; High-Level functions on sequences, streams and files
+   #:md5sum-sequence #:md5sum-stream #:md5sum-file))
 
 (in-package :MD5)
 
@@ -19,34 +52,23 @@
   (defparameter *old-expansion-limit* ext:*inline-expansion-limit*)
   (setq ext:*inline-expansion-limit* (max ext:*inline-expansion-limit* 1000)))
 
-;;; Big-Endian/Little-Endian stuff
-
 #+cmu
 (eval-when (:compile-toplevel :execute)
   (defparameter *old-features* *features*)
   (pushnew (c:backend-byte-order c:*target-backend*) *features*))
 
-#+(and :cmu :big-endian)
-(defmacro assemble-ub32 (a b c d)
-  `(ext:truly-the ub32 (logior (kernel:shift-towards-start ,d 24)
-			       (kernel:shift-towards-start ,c 16)
-			       (kernel:shift-towards-start ,b 8)
-			       ,a)))
+;;; Section 2:  Basic Datatypes
 
-#+(and :cmu :little-endian)
-(defmacro assemble-ub32 (a b c d)
-  `(ext:truly-the ub32 (logior (kernel:shift-towards-end ,d 24)
-			       (kernel:shift-towards-end ,c 16)
-			       (kernel:shift-towards-end ,b 8)
-			       ,a)))
+(deftype ub32 ()
+  "Corresponds to the 32bit quantity word of the MD5 Spec"
+  `(unsigned-byte 32))
 
-#-cmu
 (defmacro assemble-ub32 (a b c d)
+  "Assemble an ub32 value from the given (unsigned-byte 8) values,
+where a is the intended low-order byte and d the high-order byte."
   `(the ub32 (logior (ash ,d 24) (ash ,c 16) (ash ,b 8) ,a)))
 
 ;;; Section 3.4:  Auxilliary functions
-
-(deftype ub32 () `(unsigned-byte 32))
 
 (declaim (inline f g h i)
 	 (ftype (function (ub32 ub32 ub32) ub32) f g h i))
@@ -106,6 +128,8 @@
   #-cmu
   (logior (ldb (byte 32 0) (ash a s)) (ash a (- s 32))))
 
+;;; Section 3.4:  Table T
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter *t* (make-array 64 :element-type 'ub32
 				:initial-contents
@@ -114,6 +138,8 @@
 				      (truncate
 				       (* 4294967296
 					  (abs (sin (float i 0.0d0)))))))))
+
+;;; Section 3.4:  Helper Macro for single round definitions
 
 (defmacro with-md5-round ((op block) &rest clauses)
   (loop for (a b c d k s i) in clauses
@@ -126,9 +152,12 @@
 	finally
 	(return `(progn ,@result))))
 
-;; Block-level operations
+;;; Section 3.3:  (Initial) MD5 Working Set
 
-(deftype md5-regs () `(simple-array (unsigned-byte 32) (4)))
+(deftype md5-regs ()
+  "The working state of the MD5 algorithm, which contains the 4 32-bit
+registers A, B, C and D."
+  `(simple-array (unsigned-byte 32) (4)))
 
 (defmacro md5-regs-a (regs)
   `(aref ,regs 0))
@@ -142,13 +171,18 @@
 (defmacro md5-regs-d (regs)
   `(aref ,regs 3))
 
-(defconstant +md5-magic-a+ #x67452301)
-(defconstant +md5-magic-b+ #xefcdab89)
-(defconstant +md5-magic-c+ #x98badcfe)
-(defconstant +md5-magic-d+ #x10325476)
+(defconstant +md5-magic-a+ (assemble-ub32 #x01 #x23 #x45 #x67)
+  "Initial value of Register A of the MD5 working state.")
+(defconstant +md5-magic-b+ (assemble-ub32 #x89 #xab #xcd #xef)
+  "Initial value of Register B of the MD5 working state.")
+(defconstant +md5-magic-c+ (assemble-ub32 #xfe #xdc #xba #x98)
+  "Initial value of Register C of the MD5 working state.")
+(defconstant +md5-magic-d+ (assemble-ub32 #x76 #x54 #x32 #x10)
+  "Initial value of Register D of the MD5 working state.")
 
 (declaim (inline initial-md5-regs))
 (defun initial-md5-regs ()
+  "Create the initial working state of an MD5 run."
   (declare (optimize (speed 3) (safety 0) (space 0) (debug 0)))
   (let ((regs (make-array 4 :element-type '(unsigned-byte 32))))
     (declare (type md5-regs regs))
@@ -158,7 +192,12 @@
 	  (md5-regs-d regs) +md5-magic-d+)
     regs))
 
+;;; Section 3.4:  Operation on 16-Word Blocks
+
 (defun update-md5-block (regs block)
+  "This is the core part of the MD5 algorithm.  It takes a complete 16
+word block of input, and updates the working state in A, B, C, and D
+accordingly."
   (declare (type md5-regs regs)
 	   (type (simple-array ub32 (16)) block)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
@@ -196,25 +235,27 @@
 	  (md5-regs-d regs) (mod32+ (md5-regs-d regs) d))
     regs))
 
+;;; Section 3.4:  Converting 8bit-vectors into 16-Word Blocks
+
 (declaim (inline fill-block fill-block-ub8 fill-block-char))
 (defun fill-block (block buffer offset)
+  "Convert a complete 64 byte input vector segment into the given 16
+word MD5 block.  This currently works on (unsigned-byte 8) and
+character simple-arrays, via the functions `fill-block-ub8' and
+`fill-block-char' respectively."
   (declare (type (integer 0 #.(- most-positive-fixnum 64)) offset)
 	   (type (simple-array ub32 (16)) block)
 	   (type (simple-array * (*)) buffer)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  #+(and :cmu :little-endian)
-  (kernel:bit-bash-copy
-   buffer (+ (* vm:vector-data-offset vm:word-bits) (* offset vm:byte-bits))
-   block (* vm:vector-data-offset vm:word-bits)
-   (* 64 vm:byte-bits))
-  #-(and :cmu :little-endian)
   (etypecase buffer
     ((simple-array (unsigned-byte 8) (*))
      (fill-block-ub8 block buffer offset))
     (simple-string
      (fill-block-char block buffer offset))))
-  
+
 (defun fill-block-ub8 (block buffer offset)
+  "Convert a complete 64 (unsigned-byte 8) input vector segment
+starting from offset into the given 16 word MD5 block."
   (declare (type (integer 0 #.(- most-positive-fixnum 64)) offset)
 	   (type (simple-array ub32 (16)) block)
 	   (type (simple-array (unsigned-byte 8) (*)) buffer)
@@ -236,6 +277,8 @@
 			     (aref buffer (+ j 3))))))
 
 (defun fill-block-char (block buffer offset)
+  "Convert a complete 64 character input string segment starting from
+offset into the given 16 word MD5 block."
   (declare (type (integer 0 #.(- most-positive-fixnum 64)) offset)
 	   (type (simple-array ub32 (16)) block)
 	   (type simple-string buffer)
@@ -256,8 +299,12 @@
 			     (char-code (schar buffer (+ j 2)))
 			     (char-code (schar buffer (+ j 3)))))))
 
-(declaim (inline md5regs-checksum))
-(defun md5regs-checksum (regs)
+;;; Section 3.5:  Message Digest Output
+
+(declaim (inline md5regs-digest))
+(defun md5regs-digest (regs)
+  "Create the final 16 byte message-digest from the MD5 working state
+in regs.  Returns a (simple-array (unsigned-byte 8) (16))."
   (declare (optimize (speed 3) (safety 0) (space 0) (debug 0))
 	   (type md5-regs regs))
   (let ((result (make-array 16 :element-type '(unsigned-byte 8))))
@@ -277,12 +324,15 @@
       (frob (md5-regs-d regs) 12))
     result))
 
-;; Mid-Level Drivers
+;;; Mid-Level Drivers
 
 (defstruct (md5-state
-	     (:constructor make-md5-state ()))
+	     (:constructor make-md5-state ())
+	     (:copier))
   (regs (initial-md5-regs) :type md5-regs :read-only t)
-  (amount 0 :type (unsigned-byte 29))
+  (amount 0 :type
+	  #-md5-small-length (integer 0 *)
+	  #+md5-small-length (unsigned-byte 29))
   (block (make-array 16 :element-type '(unsigned-byte 32)) :read-only t
 	 :type (simple-array (unsigned-byte 32) (16)))
   (buffer (make-array 64 :element-type '(unsigned-byte 8)) :read-only t
@@ -292,6 +342,9 @@
 
 (declaim (inline copy-to-buffer))
 (defun copy-to-buffer (from from-offset count buffer buffer-offset)
+  "Copy a partial segment from input vector from starting at
+from-offset and copying count elements into the 64 byte buffer
+starting at buffer-offset."
   (declare (optimize (speed 3) (safety 0) (space 0) (debug 0))
 	   (type (unsigned-byte 29) from-offset)
 	   (type (integer 0 63) count buffer-offset)
@@ -311,19 +364,26 @@
 	   below (+ from-offset count)
 	   do
 	   (setf (aref buffer buffer-index)
-		 (char-code (schar from from-index)))))
+		 (char-code (schar (the simple-string from) from-index)))))
     ((simple-array (unsigned-byte 8) (*))
      (loop for buffer-index of-type (integer 0 64) from buffer-offset
 	   for from-index of-type fixnum from from-offset
 	   below (+ from-offset count)
 	   do
-	   (setf (aref buffer buffer-index) (aref from from-index))))))
+	   (setf (aref buffer buffer-index)
+		 (aref (the (simple-array (unsigned-byte 8) (*)) from)
+		       from-index))))))
 
 (defun update-md5-state (state sequence &key (start 0) (end (length sequence)))
+  "Update the given md5-state from sequence, which is either a
+simple-string or a simple-array with element-type (unsigned-byte 8),
+bounded by start and end, which must be numeric bounding-indices."
   (declare (type md5-state state)
 	   (type (simple-array * (*)) sequence)
 	   (type fixnum start end)
-	   (optimize (speed 3) (space 0) (debug 0)))
+	   (optimize (speed 3) #+cmu (safety 0) (space 0) (debug 0))
+	   #+cmu
+	   (ext:optimize-interface (safety 1) (debug 1)))
   (let ((regs (md5-state-regs state))
 	(block (md5-state-block state))
 	(buffer (md5-state-buffer state))
@@ -372,20 +432,31 @@
 		 (unless (zerop amount)
 		   (copy-to-buffer sequence offset amount buffer 0))
 		 (setf (md5-state-buffer-index state) amount))))))
-    (setf (md5-state-amount state) (+ (md5-state-amount state) length))
+    (setf (md5-state-amount state)
+	  #-md5-small-length (+ (md5-state-amount state) length)
+	  #+md5-small-length (the (unsigned-byte 29)
+			       (+ (md5-state-amount state) length)))
     state))
 
 (defun finalize-md5-state (state)
+  "If the given md5-state has not already been finalized, finalize it,
+by processing any remaining input in its buffer, with suitable padding
+and appended bit-length, as specified by the MD5 standard.
+
+The resulting MD5 message-digest is returned as an array of sixteen
+x(unsigned-byte 8) values.  Calling `update-md5-state' after a call to
+`finalize-md5-state' results in unspecified behaviour."
   (declare (type md5-state state)
-	   (optimize (speed 3) (space 0) (debug 0)))
+	   (optimize (speed 3) #+cmu (safety 0) (space 0) (debug 0))
+	   #+cmu
+	   (ext:optimize-interface (safety 1) (debug 1)))
   (or (md5-state-finalized-p state)
       (let ((regs (md5-state-regs state))
 	    (block (md5-state-block state))
 	    (buffer (md5-state-buffer state))
 	    (buffer-index (md5-state-buffer-index state))
-	    (total-length (md5-state-amount state)))
+	    (total-length (* 8 (md5-state-amount state))))
 	(declare (type md5-regs regs)
-		 (type (unsigned-byte 29) total-length)
 		 (type (integer 0 63) buffer-index)
 		 (type (simple-array ub32 (16)) block)
 		 (type (simple-array (unsigned-byte 8) (*)) buffer))
@@ -395,23 +466,49 @@
 	      do (setf (aref buffer index) #x00))
 	(fill-block-ub8 block buffer 0)
 	(when (< buffer-index 56)
-	  (setf (aref block 14) (* total-length 8)))
+	  (setf (aref block 14) (ldb (byte 32 0) total-length))
+	  #-md5-small-length
+	  (setf (aref block 15) (ldb (byte 32 32) total-length)))
 	(update-md5-block regs block)
 	(when (< 56 buffer-index 64)
 	  (loop for index of-type (integer 0 16) from 0 below 16
 		do (setf (aref block index) #x00000000))
-	  (setf (aref block 14) (* total-length 8))
+	  (setf (aref block 14) (ldb (byte 32 0) total-length))
+	  #-md5-small-length
+	  (setf (aref block 15) (ldb (byte 32 32) total-length))
 	  (update-md5-block regs block))
 	(setf (md5-state-finalized-p state)
-	      (md5regs-checksum regs)))))
+	      (md5regs-digest regs)))))
 
-;; High-Level Drivers
+;;; High-Level Drivers
 
-(defconstant +buffer-size+ (* 128 1024))
+(defun md5sum-sequence (sequence &key (start 0) end)
+  "Calculate the MD5 message-digest of data in sequence.  On CMU CL
+this works for all sequences whose element-type is supported by the
+underlying MD5 routines, on other implementations it only works for 1d
+simple-arrays with such element types."
+  (declare (optimize (speed 3) (space 0) (debug 0))
+	   (type vector sequence) (type fixnum start))
+  (let ((state (make-md5-state)))
+    (declare (type md5-state state))
+    #+cmu
+    (lisp::with-array-data ((data sequence) (real-start start) (real-end end))
+      (update-md5-state state data :start real-start :end real-end))
+    #-cmu
+    (let ((real-end (or end (length sequence))))
+      (declare (type fixnum real-end))
+      (update-md5-state state sequence :start start :end real-end))
+    (finalize-md5-state state)))
+
+(defconstant +buffer-size+ (* 128 1024)
+  "Size of internal buffer to use for md5sum-stream and md5sum-file
+operations.  This should be a multiple of 64, the MD5 block size.")
 
 (deftype buffer-index () `(integer 0 ,+buffer-size+))
 
 (defun md5sum-stream (stream)
+  "Calculate an MD5 message-digest of the contents of stream.  Its
+element-type has to be either (unsigned-byte 8) or character."
   (declare (optimize (speed 3) (space 0) (debug 0)))
   (let ((state (make-md5-state)))
     (declare (type md5-state state))
@@ -439,14 +536,52 @@
 	      (stream-element-type stream) stream)))))
 
 (defun md5sum-file (pathname)
+  "Calculate the MD5 message-digest of the file specified by pathname."
   (declare (optimize (speed 3) (space 0) (debug 0)))
   (with-open-file (stream pathname :element-type '(unsigned-byte 8))
     (md5sum-stream stream)))
 
-#+cmu
-(eval-when (:compile-toplevel)
-  (setq ext:*inline-expansion-limit* *old-expansion-limit*))
+#+md5-testing
+(defconstant +rfc1321-testsuite+
+  '(("" . "d41d8cd98f00b204e9800998ecf8427e")
+    ("a" ."0cc175b9c0f1b6a831c399e269772661")
+    ("abc" . "900150983cd24fb0d6963f7d28e17f72")
+    ("message digest" . "f96b697d7cb7938d525a2f31aaf161d0")
+    ("abcdefghijklmnopqrstuvwxyz" . "c3fcd3d76192e4007dfb496cca67e13b")
+    ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789" .
+     "d174ab98d277d9f5a5611c2c9f419d9f")
+    ("12345678901234567890123456789012345678901234567890123456789012345678901234567890" .
+     "57edf4a22be3c955ac49da2e2107b67a"))
+  "AList of test input strings and stringified message-digests
+according to the test suite in Appendix A.5 of RFC 1321")
+
+#+md5-testing
+(defun test-rfc1321 ()
+  (loop for count from 1
+	for (source . md5-string) in +rfc1321-testsuite+
+	for md5-digest = (md5sum-sequence source)
+	for md5-result-string = (format nil "~(~{~2,'0X~}~)"
+					(map 'list #'identity md5-digest))
+	do
+	(format
+	 *trace-output*
+	 "~2&Test-Case ~D:~%  Input: ~S~%  Required: ~A~%  Returned: ~A~%"
+	 count source md5-string md5-result-string)
+	when (string= md5-string md5-result-string)
+	do (format *trace-output* "  OK~%")
+	else
+	count 1 into failed
+	and do (format *trace-output* "  FAILED~%")
+	finally
+	(format *trace-output*
+		"~2&~[All ~D test cases succeeded~:;~:*~D of ~D test cases failed~].~%"
+		failed (1- count))
+	(return (zerop failed))))
 
 #+cmu
 (eval-when (:compile-toplevel :execute)
   (setq *features* *old-features*))
+
+#+cmu
+(eval-when (:compile-toplevel)
+  (setq ext:*inline-expansion-limit* *old-expansion-limit*))
