@@ -14,9 +14,35 @@
 
 (in-package :MD5)
 
+#+cmu
 (eval-when (:compile-toplevel)
   (defparameter *old-expansion-limit* ext:*inline-expansion-limit*)
   (setq ext:*inline-expansion-limit* (max ext:*inline-expansion-limit* 1000)))
+
+;;; Big-Endian/Little-Endian stuff
+
+#+cmu
+(eval-when (:compile-toplevel :execute)
+  (defparameter *old-features* *features*)
+  (pushnew (c:backend-byte-order c:*target-backend*) *features*))
+
+#+(and :cmu :big-endian)
+(defmacro assemble-ub32 (a b c d)
+  `(ext:truly-the ub32 (logior (kernel:shift-towards-start ,d 24)
+			       (kernel:shift-towards-start ,c 16)
+			       (kernel:shift-towards-start ,b 8)
+			       ,a)))
+
+#+(and :cmu :little-endian)
+(defmacro assemble-ub32 (a b c d)
+  `(ext:truly-the ub32 (logior (kernel:shift-towards-end ,d 24)
+			       (kernel:shift-towards-end ,c 16)
+			       (kernel:shift-towards-end ,b 8)
+			       ,a)))
+
+#-cmu
+(defmacro assemble-ub32 (a b c d)
+  `(the ub32 (logior (ash ,d 24) (ash ,c 16) (ash ,b 8) ,a)))
 
 ;;; Section 3.4:  Auxilliary functions
 
@@ -28,37 +54,57 @@
 (defun f (x y z)
   (declare (type ub32 x y z)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
+  #+cmu
   (kernel:32bit-logical-or (kernel:32bit-logical-and x y)
-			   (kernel:32bit-logical-andc1 x z)))
+			   (kernel:32bit-logical-andc1 x z))
+  #-cmu
+  (logior (logand x y) (logandc1 x z)))
 
 (defun g (x y z)
   (declare (type ub32 x y z)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
+  #+cmu
   (kernel:32bit-logical-or (kernel:32bit-logical-and x z)
-			   (kernel:32bit-logical-andc2 y z)))
+			   (kernel:32bit-logical-andc2 y z))
+  #-cmu
+  (logior (logand x z) (logandc2 y z)))
 
 (defun h (x y z)
   (declare (type ub32 x y z)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (kernel:32bit-logical-xor x (kernel:32bit-logical-xor y z)))
+  #+cmu
+  (kernel:32bit-logical-xor x (kernel:32bit-logical-xor y z))
+  #-cmu
+  (logxor x y z))
 
 (defun i (x y z)
   (declare (type ub32 x y z)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (kernel:32bit-logical-xor y (kernel:32bit-logical-orc2 x z)))
+  #+cmu
+  (kernel:32bit-logical-xor y (kernel:32bit-logical-orc2 x z))
+  #-cmu
+  (logxor y (logorc2 x z)))
 
-(declaim (inline mod32+ rol32)
+(declaim (inline mod32+)
 	 (ftype (function (ub32 ub32) ub32) mod32+))
 (defun mod32+ (a b)
   (declare (type ub32 a b) (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (ext:truly-the ub32 (+ a b)))
+  #+cmu
+  (ext:truly-the ub32 (+ a b))
+  #-cmu
+  (ldb (byte 32 0) (+ a b)))
 
-(declaim (ftype (function (ub32 (unsigned-byte 5)) ub32) rol32))
+(declaim (inline rol32)
+	 (ftype (function (ub32 (unsigned-byte 5)) ub32) rol32))
 (defun rol32 (a s)
   (declare (type ub32 a) (type (unsigned-byte 5) s)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (kernel:32bit-logical-or (kernel:shift-towards-end a s)
-			   (ash a (- s 32))))
+  #+cmu
+  (kernel:32bit-logical-or #+little-endian (kernel:shift-towards-end a s)
+			   #+big-endian (kernel:shift-towards-start a s)
+			   (ash a (- s 32)))
+  #-cmu
+  (logior (ldb (byte 32 0) (ash a s)) (ash a (- s 32))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter *t* (make-array 64 :element-type 'ub32
@@ -156,12 +202,12 @@
 	   (type (simple-array ub32 (16)) block)
 	   (type (simple-array * (*)) buffer)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  #+(and cmu x86)
+  #+(and :cmu :little-endian)
   (kernel:bit-bash-copy
    buffer (+ (* vm:vector-data-offset vm:word-bits) (* offset vm:byte-bits))
    block (* vm:vector-data-offset vm:word-bits)
    (* 64 vm:byte-bits))
-  #-(and cmu x86)
+  #-(and :cmu :little-endian)
   (etypecase buffer
     ((simple-array (unsigned-byte 8) (*))
      (fill-block-ub8 block buffer offset))
@@ -173,52 +219,42 @@
 	   (type (simple-array ub32 (16)) block)
 	   (type (simple-array (unsigned-byte 8) (*)) buffer)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  #+(and cmu x86)
+  #+(and :cmu :little-endian)
   (kernel:bit-bash-copy
    buffer (+ (* vm:vector-data-offset vm:word-bits) (* offset vm:byte-bits))
    block (* vm:vector-data-offset vm:word-bits)
    (* 64 vm:byte-bits))
-  #-(and cmu x86)
+  #-(and :cmu :little-endian)
   (loop for i of-type (integer 0 16) from 0
 	for j of-type (integer 0 #.most-positive-fixnum)
 	from offset to (+ offset 63) by 4
 	do
 	(setf (aref block i)
-	      (ext:truly-the ub32
-			     (logior
-			      (kernel:shift-towards-end
-			       (aref buffer (+ j 3)) 24)
-			      (kernel:shift-towards-end
-			       (aref buffer (+ j 2)) 16)
-			      (kernel:shift-towards-end
-			       (aref buffer (+ j 1)) 8)
-			      (aref buffer j))))))
+	      (assemble-ub32 (aref buffer j)
+			     (aref buffer (+ j 1))
+			     (aref buffer (+ j 2))
+			     (aref buffer (+ j 3))))))
 
 (defun fill-block-char (block buffer offset)
   (declare (type (integer 0 #.(- most-positive-fixnum 64)) offset)
 	   (type (simple-array ub32 (16)) block)
 	   (type simple-string buffer)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  #+(and cmu x86)
+  #+(and :cmu :little-endian)
   (kernel:bit-bash-copy
    buffer (+ (* vm:vector-data-offset vm:word-bits) (* offset vm:byte-bits))
    block (* vm:vector-data-offset vm:word-bits)
    (* 64 vm:byte-bits))
-  #-(and cmu x86)
+  #-(and :cmu :little-endian)
   (loop for i of-type (integer 0 16) from 0
 	for j of-type (integer 0 #.most-positive-fixnum)
 	from offset to (+ offset 63) by 4
 	do
 	(setf (aref block i)
-	      (ext:truly-the ub32
-			     (logior
-			      (kernel:shift-towards-end
-			       (char-code (schar buffer (+ j 3))) 24)
-			      (kernel:shift-towards-end
-			       (char-code (schar buffer (+ j 2))) 16)
-			      (kernel:shift-towards-end
-			       (char-code (schar buffer (+ j 1))) 8)
-			      (char-code (schar buffer j)))))))
+	      (assemble-ub32 (char-code (schar buffer j))
+			     (char-code (schar buffer (+ j 1)))
+			     (char-code (schar buffer (+ j 2)))
+			     (char-code (schar buffer (+ j 3)))))))
 
 (declaim (inline md5regs-checksum))
 (defun md5regs-checksum (regs)
@@ -261,13 +297,13 @@
 	   (type (integer 0 63) count buffer-offset)
 	   (type (simple-array * (*)) from)
 	   (type (simple-array (unsigned-byte 8) (64)) buffer))
-  #+(and cmu x86)
+  #+cmu
   (kernel:bit-bash-copy
    from (+ (* vm:vector-data-offset vm:word-bits) (* from-offset vm:byte-bits))
    buffer (+ (* vm:vector-data-offset vm:word-bits)
 	     (* buffer-offset vm:byte-bits))
    (* count vm:byte-bits))
-  #-(and cmu x86)
+  #-cmu
   (etypecase from
     (simple-string
      (loop for buffer-index of-type (integer 0 64) from buffer-offset
@@ -381,8 +417,9 @@
     (declare (type md5-state state))
     (cond
       ((equal (stream-element-type stream) '(unsigned-byte 8))
-       (let ((buffer (make-array +buffer-size+ :element-type '(unsigned-byte 8))))
-	 (declare (type (simple-array (unsigned-byte 8) (#.md5::+buffer-size+))
+       (let ((buffer (make-array +buffer-size+
+				 :element-type '(unsigned-byte 8))))
+	 (declare (type (simple-array (unsigned-byte 8) (#.+buffer-size+))
 			buffer))
 	 (loop for bytes of-type buffer-index = (read-sequence buffer stream)
 	       do (update-md5-state state buffer :end bytes)
@@ -391,7 +428,7 @@
 	       (return (finalize-md5-state state)))))
       ((equal (stream-element-type stream) 'character)
        (let ((buffer (make-string +buffer-size+)))
-	 (declare (type (simple-string #.md5::+buffer-size+) buffer))
+	 (declare (type (simple-string #.+buffer-size+) buffer))
 	 (loop for bytes of-type buffer-index = (read-sequence buffer stream)
 	       do (update-md5-state state buffer :end bytes)
 	       until (< bytes +buffer-size+)
@@ -406,5 +443,10 @@
   (with-open-file (stream pathname :element-type '(unsigned-byte 8))
     (md5sum-stream stream)))
 
+#+cmu
 (eval-when (:compile-toplevel)
   (setq ext:*inline-expansion-limit* *old-expansion-limit*))
+
+#+cmu
+(eval-when (:compile-toplevel :execute)
+  (setq *features* *old-features*))
