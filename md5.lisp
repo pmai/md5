@@ -1,3 +1,6 @@
+;;;; This code implements MD5 checksums as defined in RFC 1321
+;;;; It was written by Pierre R. Mai and placed into the public domain.
+
 (defpackage :MD5 (:use :CL)
   (:export
    ;; Low-Level types and functions
@@ -18,42 +21,31 @@
 ;;; Section 3.4:  Auxilliary functions
 
 (deftype ub32 () `(unsigned-byte 32))
-(deftype sb32 () `(signed-byte 32))
 
 (declaim (inline f g h i)
 	 (ftype (function (ub32 ub32 ub32) ub32) f g h i))
 
-(defmacro the-usb32 (x)
-  `(ext:truly-the sb32 (ext:truly-the ub32 ,x)))
-
-(defmacro the-sb32 (x)
-  `(ext:truly-the sb32 ,x))
-
-(defmacro the-ub32 (x)
-  `(ext:truly-the ub32 ,x))
-
 (defun f (x y z)
   (declare (type ub32 x y z)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (the-ub32 (logior (the-sb32 (logand (the-usb32 x) (the-usb32 y)))
-		    (the-sb32 (logandc1 (the-usb32 x) (the-usb32 z))))))
+  (kernel:32bit-logical-or (kernel:32bit-logical-and x y)
+			   (kernel:32bit-logical-andc1 x z)))
 
 (defun g (x y z)
   (declare (type ub32 x y z)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (the-ub32 (logior (the-sb32 (logand (the-usb32 x) (the-usb32 z)))
-		    (the-sb32 (logandc2 (the-usb32 y) (the-usb32 z))))))
+  (kernel:32bit-logical-or (kernel:32bit-logical-and x z)
+			   (kernel:32bit-logical-andc2 y z)))
 
 (defun h (x y z)
   (declare (type ub32 x y z)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (the-ub32 (logxor (the-usb32 x) (the-usb32 y) (the-usb32 z))))
+  (kernel:32bit-logical-xor x (kernel:32bit-logical-xor y z)))
 
 (defun i (x y z)
   (declare (type ub32 x y z)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (the-ub32 (logxor (the-usb32 y)
-		    (the-sb32 (logorc2 (the-usb32 x) (the-usb32 z))))))
+  (kernel:32bit-logical-xor y (kernel:32bit-logical-orc2 x z)))
 
 (declaim (inline mod32+ rol32)
 	 (ftype (function (ub32 ub32) ub32) mod32+))
@@ -65,8 +57,8 @@
 (defun rol32 (a s)
   (declare (type ub32 a) (type (unsigned-byte 5) s)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (ext:truly-the ub32 (logior (kernel:shift-towards-end a s)
-			      (ash a (- s 32)))))
+  (kernel:32bit-logical-or (kernel:shift-towards-end a s)
+			   (ash a (- s 32))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter *t* (make-array 64 :element-type 'ub32
