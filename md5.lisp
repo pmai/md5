@@ -5,6 +5,8 @@
 ;;;; cmucl-help mailing-list hosted at cons.org, in November 2001 and
 ;;;; has been placed into the public domain.
 ;;;;
+;;;; $Id: md5.lisp,v 1.7 2001/11/15 00:16:07 dent Exp $
+;;;;
 ;;;; While the implementation should work on all conforming Common
 ;;;; Lisp implementations, it has only been optimized for CMU CL,
 ;;;; where it achieved comparable performance to the standard md5sum
@@ -445,7 +447,7 @@ by processing any remaining input in its buffer, with suitable padding
 and appended bit-length, as specified by the MD5 standard.
 
 The resulting MD5 message-digest is returned as an array of sixteen
-x(unsigned-byte 8) values.  Calling `update-md5-state' after a call to
+(unsigned-byte 8) values.  Calling `update-md5-state' after a call to
 `finalize-md5-state' results in unspecified behaviour."
   (declare (type md5-state state)
 	   (optimize (speed 3) #+cmu (safety 0) (space 0) (debug 0))
