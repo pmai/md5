@@ -38,7 +38,7 @@
 ;;;; authors assume no responsibility for the consequences of any use
 ;;;; of this software.
 
-(defpackage :MD5 (:use :CL)
+(defpackage #:md5 (:use #:cl)
   (:export
    ;; Low-Level types and functions
    #:md5-regs #:initial-md5-regs #:md5regs-digest
@@ -49,7 +49,7 @@
    ;; High-Level functions on sequences, streams and files
    #:md5sum-sequence #:md5sum-stream #:md5sum-file))
 
-(in-package :MD5)
+(in-package #:md5)
 
 #+cmu
 (eval-when (:compile-toplevel)
@@ -206,9 +206,9 @@ accordingly."
   (declare (type md5-regs regs)
 	   (type (simple-array ub32 (16)) block)
 	   (optimize (speed 3) (safety 0) (space 0) (debug 0)))
-  (let ((a (md5-regs-a regs)) (b (md5-regs-b regs))
-	(c (md5-regs-c regs)) (d (md5-regs-d regs)))
-    (declare (type ub32 a b c d))
+  (let ((A (md5-regs-a regs)) (B (md5-regs-b regs))
+	(C (md5-regs-c regs)) (D (md5-regs-d regs)))
+    (declare (type ub32 A B C D))
     ;; Round 1
     (with-md5-round (f block)
       (A B C D  0  7  1)(D A B C  1 12  2)(C D A B  2 17  3)(B C D A  3 22  4)
@@ -234,10 +234,10 @@ accordingly."
       (A B C D  8  6 57)(D A B C 15 10 58)(C D A B  6 15 59)(B C D A 13 21 60)
       (A B C D  4  6 61)(D A B C 11 10 62)(C D A B  2 15 63)(B C D A  9 21 64))
     ;; Update and return
-    (setf (md5-regs-a regs) (mod32+ (md5-regs-a regs) a)
-	  (md5-regs-b regs) (mod32+ (md5-regs-b regs) b)
-	  (md5-regs-c regs) (mod32+ (md5-regs-c regs) c)
-	  (md5-regs-d regs) (mod32+ (md5-regs-d regs) d))
+    (setf (md5-regs-a regs) (mod32+ (md5-regs-a regs) A)
+	  (md5-regs-b regs) (mod32+ (md5-regs-b regs) B)
+	  (md5-regs-c regs) (mod32+ (md5-regs-c regs) C)
+	  (md5-regs-d regs) (mod32+ (md5-regs-d regs) D))
     regs))
 
 ;;; Section 3.4:  Converting 8bit-vectors into 16-Word Blocks
