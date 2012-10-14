@@ -5,7 +5,7 @@
 ;;;; cmucl-help mailing-list hosted at cons.org, in November 2001 and
 ;;;; has been placed into the public domain.
 ;;;;
-;;;; $Id: md5.lisp,v 1.8 2003/01/25 00:18:27 dent Exp $
+;;;; $Id$
 ;;;;
 ;;;; While the implementation should work on all conforming Common
 ;;;; Lisp implementations, it has only been optimized for CMU CL,
