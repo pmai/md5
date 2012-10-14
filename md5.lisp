@@ -508,9 +508,10 @@ simple-arrays with such element types."
       (update-md5-state state sequence :start start :end real-end))
     (finalize-md5-state state)))
 
-(defconstant +buffer-size+ (* 128 1024)
-  "Size of internal buffer to use for md5sum-stream and md5sum-file
-operations.  This should be a multiple of 64, the MD5 block size.")
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defconstant +buffer-size+ (* 128 1024)
+    "Size of internal buffer to use for md5sum-stream and md5sum-file
+operations.  This should be a multiple of 64, the MD5 block size."))
 
 (deftype buffer-index () `(integer 0 ,+buffer-size+))
 
