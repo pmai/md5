@@ -109,7 +109,7 @@ where a is the intended low-order byte and d the high-order byte."
   #+cmu
   (kernel:32bit-logical-xor y (kernel:32bit-logical-orc2 x z))
   #-cmu
-  (logxor y (logorc2 x z)))
+  (ldb (byte 32 0) (logxor y (logorc2 x z))))
 
 (declaim (inline mod32+)
 	 (ftype (function (ub32 ub32) ub32) mod32+))
