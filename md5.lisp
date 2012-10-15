@@ -410,8 +410,11 @@ bounded by start and end, which must be numeric bounding-indices."
             (update-md5-block regs block)
             (setq new-index 0))
           (when (>= start end)
-            (setf (md5-state-buffer-index state) new-index)
-            (incf (md5-state-amount state) length)
+            (setf (md5-state-buffer-index state) new-index
+                  (md5-state-amount state)
+                  #-md5-small-length (+ (md5-state-amount state) length)
+                  #+md5-small-length (the (unsigned-byte 29)
+                                       (+ (md5-state-amount state) length)))
             (return-from update-md5-state state)))))
     ;; Handle main-part and new-rest
     (etypecase sequence
