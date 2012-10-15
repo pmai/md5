@@ -686,27 +686,63 @@ according to the test suite in Appendix A.5 of RFC 1321")
 according to my additional test suite")
 
 #+md5-testing
+(defconstant +ascii-map+
+  '((#\A .  65) (#\B .  66) (#\C .  67) (#\D .  68) (#\E .  69) (#\F .  70) 
+    (#\G .  71) (#\H .  72) (#\I .  73) (#\J .  74) (#\K .  75) (#\L .  76)
+    (#\M .  77) (#\N .  78) (#\O .  79) (#\P .  80) (#\Q .  81) (#\R .  82)
+    (#\S .  83) (#\T .  84) (#\U .  85) (#\V .  86) (#\W .  87) (#\X .  88)
+    (#\Y .  89) (#\Z .  90) (#\a .  97) (#\b .  98) (#\c .  99) (#\d . 100)
+    (#\e . 101) (#\f . 102) (#\g . 103) (#\h . 104) (#\i . 105) (#\j . 106)
+    (#\k . 107) (#\l . 108) (#\m . 109) (#\n . 110) (#\o . 111) (#\p . 112)
+    (#\q . 113) (#\r . 114) (#\s . 115) (#\t . 116) (#\u . 117) (#\v . 118)
+    (#\w . 119) (#\x . 120) (#\y . 121) (#\z . 122) (#\0 .  48) (#\1 .  49)
+    (#\2 .  50) (#\3 .  51) (#\4 .  52) (#\5 .  53) (#\6 .  54) (#\7 .  55)
+    (#\8 .  56) (#\9 .  57) (#\Space .  32))
+  "AList mapping string characters to ASCII codes for safe binary testing.")
+        
+#+md5-testing
 (defun test-with-testsuite (testsuite)
-  (loop for count from 1
-	for (source . md5-string) in testsuite
-	for md5-digest = (md5sum-sequence source)
-	for md5-result-string = (format nil "~(~{~2,'0X~}~)"
-					(map 'list #'identity md5-digest))
-	do
-	(format
+  (flet ((to-vector (string)
+           (loop with result = (make-array (list (length string)) 
+                                           :element-type '(unsigned-byte 8))
+                 for char across string
+                 for byte = (or (cdr (assoc char +ascii-map+)) 
+                                (error "Missing Char in +ascii-map+: ~S" char))
+                 for index upfrom 0
+                 do (setf (aref result index) byte)
+                 finally (return result)))
+         (incremental-md5sum (input)
+           (loop with state = (make-md5-state)
+                 for index from 0 below (length input)
+                 do (update-md5-state state input :start index :end (1+ index))
+                 finally (return (finalize-md5-state state)))))
+    (loop for count from 1
+          for (source . md5-string) in testsuite
+          for binary-source = (to-vector source)
+          for md5-digest = (md5sum-sequence binary-source)
+          for md5-digest-inc = (incremental-md5sum binary-source)
+          for md5-result-string = (format nil "~(~{~2,'0X~}~)"
+                                              (map 'list #'identity md5-digest))
+          for md5-result-string-inc = (format nil 
+                                              "~(~{~2,'0X~}~)"
+                                              (map 'list #'identity md5-digest-inc))
+          do
+       (format
 	 *trace-output*
-	 "~2&Test-Case ~D:~%  Input: ~S~%  Required: ~A~%  Returned: ~A~%"
-	 count source md5-string md5-result-string)
-	when (string= md5-string md5-result-string)
-	do (format *trace-output* "  OK~%")
-	else
-	count 1 into failed
-	and do (format *trace-output* "  FAILED~%")
-	finally
-	(format *trace-output*
-		"~2&~[All ~D test cases succeeded~:;~:*~D of ~D test cases failed~].~%"
-		failed (1- count))
-	(return (zerop failed))))
+	 "~2&Test-Case ~D:~%  Input: ~S~%  Required: ~A~%  Returned: ~A~%  ~
+          Returned incrementally: ~A~%"
+	 count source md5-string md5-result-string md5-result-string-inc)
+          when (and (string= md5-string md5-result-string)
+                    (string= md5-string md5-result-string-inc))
+            do (format *trace-output* "  OK~%")
+          else
+            count 1 into failed
+            and do (format *trace-output* "  FAILED~%")
+          finally
+       (format *trace-output*
+               "~2&~[All ~D test cases succeeded~:;~:*~D of ~D test cases failed~].~%"
+               failed (1- count))
+       (return (zerop failed)))))
 
 #+md5-testing
 (defun test-rfc1321 ()
