@@ -796,5 +796,5 @@ according to my additional test suite")
   (setq ext:*inline-expansion-limit* *old-expansion-limit*))
 
 #+sbcl
-(eval-when (:compile-toplevel)
+(eval-when (:compile-toplevel :execute)
   (setq *features* *old-features*))
