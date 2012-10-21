@@ -671,7 +671,7 @@ element-type has to be either (unsigned-byte 8) or character."
     (md5sum-stream stream)))
 
 #+md5-testing
-(defconstant +rfc1321-testsuite+
+(defparameter *rfc1321-testsuite*
   '(("" . "d41d8cd98f00b204e9800998ecf8427e")
     ("a" ."0cc175b9c0f1b6a831c399e269772661")
     ("abc" . "900150983cd24fb0d6963f7d28e17f72")
@@ -685,7 +685,7 @@ element-type has to be either (unsigned-byte 8) or character."
 according to the test suite in Appendix A.5 of RFC 1321")
 
 #+md5-testing
-(defconstant +other-testsuite+
+(defparameter *other-testsuite*
   '(;; From padding bug report by Edi Weitz
     ("1631901HERR BUCHHEISTERCITROEN NORD1043360796beckenbauer" .
      "d734945e5930bb28859ccd13c830358b")
@@ -799,7 +799,7 @@ according to the test suite in Appendix A.5 of RFC 1321")
 according to my additional test suite")
 
 #+md5-testing
-(defconstant +ascii-map+
+(defparameter *ascii-map*
   '((#\A .  65) (#\B .  66) (#\C .  67) (#\D .  68) (#\E .  69) (#\F .  70) 
     (#\G .  71) (#\H .  72) (#\I .  73) (#\J .  74) (#\K .  75) (#\L .  76)
     (#\M .  77) (#\N .  78) (#\O .  79) (#\P .  80) (#\Q .  81) (#\R .  82)
@@ -819,8 +819,8 @@ according to my additional test suite")
            (loop with result = (make-array (list (length string)) 
                                            :element-type '(unsigned-byte 8))
                  for char across string
-                 for byte = (or (cdr (assoc char +ascii-map+)) 
-                                (error "Missing Char in +ascii-map+: ~S" char))
+                 for byte = (or (cdr (assoc char *ascii-map*)) 
+                                (error "Missing Char in *ascii-map*: ~S" char))
                  for index upfrom 0
                  do (setf (aref result index) byte)
                  finally (return result)))
@@ -859,11 +859,11 @@ according to my additional test suite")
 
 #+md5-testing
 (defun test-rfc1321 ()
-  (test-with-testsuite +rfc1321-testsuite+))
+  (test-with-testsuite *rfc1321-testsuite*))
 
 #+md5-testing
 (defun test-other ()
-  (test-with-testsuite +other-testsuite+))
+  (test-with-testsuite *other-testsuite*))
 
 #+cmu
 (eval-when (:compile-toplevel :execute)
