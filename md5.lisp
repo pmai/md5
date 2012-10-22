@@ -1,31 +1,49 @@
 ;;;; This file implements The MD5 Message-Digest Algorithm, as defined in
 ;;;; RFC 1321 by R. Rivest, published April 1992.
 ;;;;
-;;;; It was written by Pierre R. Mai, with copious input from the
-;;;; cmucl-help mailing-list hosted at cons.org, in November 2001 and
-;;;; has been placed into the public domain.
+;;;; It was originally written by Pierre R. Mai, with copious input
+;;;; from the cmucl-help mailing-list hosted at cons.org, in November
+;;;; 2001 and has been placed into the public domain.  In the meantime
+;;;; various fixes and improvements for other implementations as well
+;;;; as maintenance have been provided by Christophe Rhodes, Alexey
+;;;; Dejneka, Nathan Froyd, Andreas Fuchs, John Desoi, Dmitriy Ivanov,
+;;;; and Kevin M. Rosenberg, and have been reintegrated into this
+;;;; consolidated version by Pierre R. Mai.
+;;;;
+;;;; WARNING: The MD5 Message-Digest Algorithm has been compromised as
+;;;; a cryptographically secure hash for some time, with known
+;;;; theoretical and practical attacks.  Therefore use of this
+;;;; implemenation is only recommended for legacy uses or uses which
+;;;; do not require a cryptographically secure hash.  Use one of the
+;;;; newer SHA-2 and SHA-3 secure hash standards, or whatever is
+;;;; currently deemed cryptographically secure for all other uses.
 ;;;;
 ;;;; $Id$
 ;;;;
 ;;;; While the implementation should work on all conforming Common
-;;;; Lisp implementations, it has only been optimized for CMU CL,
-;;;; where it achieved comparable performance to the standard md5sum
-;;;; utility (within a factor of 1.5 or less on iA32 and UltraSparc
-;;;; hardware).
+;;;; Lisp implementations, it has originally been optimized for CMU
+;;;; CL, where it achieved comparable performance to the standard
+;;;; md5sum utility (within a factor of 1.5 or less on iA32 and
+;;;; UltraSparc hardware).
+;;;;
+;;;; Currently, this implementation has also been optimized for SBCL
+;;;; and LispWorks.
 ;;;;
 ;;;; Since the implementation makes heavy use of arithmetic on
 ;;;; (unsigned-byte 32) numbers, acceptable performance is likely only
 ;;;; on CL implementations that support unboxed arithmetic on such
-;;;; numbers in some form.  For other CL implementations a 16bit
+;;;; numbers in some form.  This should include most 64bit CL
+;;;; implementations.  For other CL implementations a 16bit
 ;;;; implementation of MD5 is probably more suitable.
 ;;;;
-;;;; The code implements correct operation for files of unbounded size
-;;;; as is, at the cost of having to do a single generic integer
-;;;; addition for each call to update-md5-state.  If you call
-;;;; update-md5-state frequently with little data, this can pose a
-;;;; performance problem.  If you can live with a size restriction of
-;;;; 512 MB, then you can enable fast fixnum arithmetic by putting
-;;;; :md5-small-length onto *features* prior to compiling this file.
+;;;; The code implements correct operation for files/sequences of
+;;;; unbounded size as is, at the cost of having to do a single
+;;;; generic integer addition for each call to update-md5-state.  If
+;;;; you call update-md5-state frequently with little data, this can
+;;;; pose a performance problem.  If you can live with a size
+;;;; restriction of 512 MB, then you can enable fast fixnum arithmetic
+;;;; by putting :md5-small-length onto *features* prior to compiling
+;;;; this file.
 ;;;;
 ;;;; Testing code can be compiled by including :md5-testing on
 ;;;; *features* prior to compilation.  In that case evaluating
