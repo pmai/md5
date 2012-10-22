@@ -106,14 +106,14 @@ where a is the intended low-order byte and d the high-order byte."
 ;;; Section 3.4:  Auxilliary functions
 
 (declaim (inline f g h i)
-	 (ftype (function (ub32 ub32 ub32) ub32) f g h i))
+         (ftype (function (ub32 ub32 ub32) ub32) f g h i))
 
 (defun f (x y z)
   (declare (type ub32 x y z)
-	   (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
+           (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
   #+cmu
   (kernel:32bit-logical-or (kernel:32bit-logical-and x y)
-			   (kernel:32bit-logical-andc1 x z))
+                           (kernel:32bit-logical-andc1 x z))
   #+lw-int32
   (sys:int32-logior (sys:int32-logand x y) (sys:int32-logandc1 x z))
   #-(or :cmu :lw-int32)
@@ -121,10 +121,10 @@ where a is the intended low-order byte and d the high-order byte."
 
 (defun g (x y z)
   (declare (type ub32 x y z)
-	   (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
+           (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
   #+cmu
   (kernel:32bit-logical-or (kernel:32bit-logical-and x z)
-			   (kernel:32bit-logical-andc2 y z))
+                           (kernel:32bit-logical-andc2 y z))
   #+lw-int32
   (sys:int32-logior (sys:int32-logand x z) (sys:int32-logandc2 y z))
   #-(or :cmu :lw-int32)
@@ -132,7 +132,7 @@ where a is the intended low-order byte and d the high-order byte."
 
 (defun h (x y z)
   (declare (type ub32 x y z)
-	   (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
+           (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
   #+cmu
   (kernel:32bit-logical-xor x (kernel:32bit-logical-xor y z))
   #+lw-int32
@@ -142,7 +142,7 @@ where a is the intended low-order byte and d the high-order byte."
 
 (defun i (x y z)
   (declare (type ub32 x y z)
-	   (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
+           (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
   #+cmu
   (kernel:32bit-logical-xor y (kernel:32bit-logical-orc2 x z))
   #+lw-int32
@@ -151,7 +151,7 @@ where a is the intended low-order byte and d the high-order byte."
   (ldb (byte 32 0) (logxor y (logorc2 x z))))
 
 (declaim (inline mod32+)
-	 (ftype (function (ub32 ub32) ub32) mod32+))
+         (ftype (function (ub32 ub32) ub32) mod32+))
 (defun mod32+ (a b)
   (declare (type ub32 a b)
            (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
@@ -170,7 +170,7 @@ where a is the intended low-order byte and d the high-order byte."
 
 #+lw-int32
 (declaim (inline int32>>logical)
-	 (ftype (function (sys:int32 (unsigned-byte 5)) sys:int32) int32>>logical))
+         (ftype (function (sys:int32 (unsigned-byte 5)) sys:int32) int32>>logical))
 #+lw-int32
 (defun int32>>logical (a s)
   (declare (type ub32 a) (type (unsigned-byte 5) s)
@@ -180,10 +180,10 @@ where a is the intended low-order byte and d the high-order byte."
       (sys:int32>> a s)))
 
 (declaim (inline rol32)
-	 (ftype (function (ub32 (unsigned-byte 5)) ub32) rol32))
+         (ftype (function (ub32 (unsigned-byte 5)) ub32) rol32))
 (defun rol32 (a s)
   (declare (type ub32 a) (type (unsigned-byte 5) s)
-	   (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
+           (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
   #+cmu
   (kernel:32bit-logical-or #+little-endian (kernel:shift-towards-end a s)
                            #+big-endian (kernel:shift-towards-start a s)
@@ -199,44 +199,44 @@ where a is the intended low-order byte and d the high-order byte."
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter *t* (make-array 64 :element-type 'ub32
-				:initial-contents
-				(loop for i from 1 to 64
-				      collect
-				      (truncate
-				       (* 4294967296
-					  (abs (sin (float i 0.0d0)))))))))
+                                :initial-contents
+                                (loop for i from 1 to 64
+                                      collect
+                                      (truncate
+                                       (* 4294967296
+                                          (abs (sin (float i 0.0d0)))))))))
 
 ;;; Section 3.4:  Helper Macro for single round definitions
 
 #-lw-int32
 (defmacro with-md5-round ((op block) &rest clauses)
   (loop for (a b c d k s i) in clauses
-	collect
-	`(setq ,a (mod32+ ,b (rol32 (mod32+ (mod32+ ,a (,op ,b ,c ,d))
-					    (mod32+ (ub32-aref ,block ,k)
-						    ,(aref *t* (1- i))))
-			            ,s)))
-	into result
-	finally
-	(return `(progn ,@result))))
+        collect
+        `(setq ,a (mod32+ ,b (rol32 (mod32+ (mod32+ ,a (,op ,b ,c ,d))
+                                            (mod32+ (ub32-aref ,block ,k)
+                                                    ,(aref *t* (1- i))))
+                                    ,s)))
+        into result
+        finally
+        (return `(progn ,@result))))
 
 #+lw-int32
 (defmacro with-md5-round ((op block) &rest clauses)
   (loop for (a b c d k s i) in clauses
-	collect
-	`(setq ,a (mod32+ ,b (rol32 (mod32+ (mod32+ ,a (,op ,b ,c ,d))
-					    (mod32+ (ub32-aref ,block ,k)
-						    (sys:integer-to-int32 
+        collect
+        `(setq ,a (mod32+ ,b (rol32 (mod32+ (mod32+ ,a (,op ,b ,c ,d))
+                                            (mod32+ (ub32-aref ,block ,k)
+                                                    (sys:integer-to-int32 
                                                      ,(let ((t-val (aref *t* (1- i))))
                                                         (dpb (ldb (byte 32 0) t-val)
                                                              (byte 32 0) 
                                                              (if (logbitp 31 t-val)
                                                                  -1
                                                                  0))))))
-			            ,s)))
-	into result
-	finally
-	(return `(progn ,@result))))
+                                    ,s)))
+        into result
+        finally
+        (return `(progn ,@result))))
 
 ;;; Section 3.3:  (Initial) MD5 Working Set
 
@@ -273,9 +273,9 @@ registers A, B, C and D."
   (let ((regs (make-ub32-vector 4)))
     (declare (type md5-regs regs))
     (setf (md5-regs-a regs) +md5-magic-a+
-	  (md5-regs-b regs) +md5-magic-b+
-	  (md5-regs-c regs) +md5-magic-c+
-	  (md5-regs-d regs) +md5-magic-d+)
+          (md5-regs-b regs) +md5-magic-b+
+          (md5-regs-c regs) +md5-magic-c+
+          (md5-regs-d regs) +md5-magic-d+)
     regs))
 
 ;;; Section 3.4:  Operation on 16-Word Blocks
@@ -289,10 +289,10 @@ registers A, B, C and D."
 word block of input, and updates the working state in A, B, C, and D
 accordingly."
   (declare (type md5-regs regs)
-	   (type md5-block block)
-	   (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
+           (type md5-block block)
+           (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
   (let ((A (md5-regs-a regs)) (B (md5-regs-b regs))
-	(C (md5-regs-c regs)) (D (md5-regs-d regs)))
+        (C (md5-regs-c regs)) (D (md5-regs-d regs)))
     (declare (type ub32 A B C D))
     ;; Round 1
     (with-md5-round (f block)
@@ -320,9 +320,9 @@ accordingly."
       (A B C D  4  6 61)(D A B C 11 10 62)(C D A B  2 15 63)(B C D A  9 21 64))
     ;; Update and return
     (setf (md5-regs-a regs) (mod32+ (md5-regs-a regs) A)
-	  (md5-regs-b regs) (mod32+ (md5-regs-b regs) B)
-	  (md5-regs-c regs) (mod32+ (md5-regs-c regs) C)
-	  (md5-regs-d regs) (mod32+ (md5-regs-d regs) D))
+          (md5-regs-b regs) (mod32+ (md5-regs-b regs) B)
+          (md5-regs-c regs) (mod32+ (md5-regs-c regs) C)
+          (md5-regs-d regs) (mod32+ (md5-regs-d regs) D))
     regs))
 
 ;;; Section 3.4:  Converting 8bit-vectors into 16-Word Blocks
@@ -332,9 +332,9 @@ accordingly."
   "Convert a complete 64 (unsigned-byte 8) input vector segment
 starting from offset into the given 16 word MD5 block."
   (declare (type (integer 0 #.(- most-positive-fixnum 64)) offset)
-	   (type md5-block block)
-	   (type (simple-array (unsigned-byte 8) (*)) buffer)
-	   (optimize (speed 3) (safety 0) (space 0) (debug 0)
+           (type md5-block block)
+           (type (simple-array (unsigned-byte 8) (*)) buffer)
+           (optimize (speed 3) (safety 0) (space 0) (debug 0)
                      #+lw-int32 (float 0) #+lw-int32 (hcl:fixnum-safety 0)))
   #+(and :cmu :little-endian)
   (kernel:bit-bash-copy
@@ -345,22 +345,22 @@ starting from offset into the given 16 word MD5 block."
   (sb-kernel:ub8-bash-copy buffer offset block 0 64)
   #-(or (and :sbcl :little-endian) (and :cmu :little-endian))
   (loop for i of-type (integer 0 16) from 0
-	for j of-type (integer 0 #.most-positive-fixnum)
-	from offset to (+ offset 63) by 4
-	do
-	(setf (ub32-aref block i)
-	      (assemble-ub32 (aref buffer j)
-			     (aref buffer (+ j 1))
-			     (aref buffer (+ j 2))
-			     (aref buffer (+ j 3))))))
+        for j of-type (integer 0 #.most-positive-fixnum)
+        from offset to (+ offset 63) by 4
+        do
+        (setf (ub32-aref block i)
+              (assemble-ub32 (aref buffer j)
+                             (aref buffer (+ j 1))
+                             (aref buffer (+ j 2))
+                             (aref buffer (+ j 3))))))
 
 (defun fill-block-char (block buffer offset)
   "Convert a complete 64 character input string segment starting from
 offset into the given 16 word MD5 block."
   (declare (type (integer 0 #.(- most-positive-fixnum 64)) offset)
-	   (type md5-block block)
-	   (type simple-string buffer)
-	   (optimize (speed 3) (safety 0) (space 0) (debug 0)
+           (type md5-block block)
+           (type simple-string buffer)
+           (optimize (speed 3) (safety 0) (space 0) (debug 0)
                      #+lw-int32 (float 0) #+lw-int32 (hcl:fixnum-safety 0)))
   #+(and :cmu :little-endian)
   (kernel:bit-bash-copy
@@ -371,14 +371,14 @@ offset into the given 16 word MD5 block."
   (sb-kernel:ub8-bash-copy buffer offset block 0 64)
   #-(or (and :sbcl :little-endian) (and :cmu :little-endian))
   (loop for i of-type (integer 0 16) from 0
-	for j of-type (integer 0 #.most-positive-fixnum)
-	from offset to (+ offset 63) by 4
-	do
-	(setf (ub32-aref block i)
-	      (assemble-ub32 (char-code (schar buffer j))
-			     (char-code (schar buffer (+ j 1)))
-			     (char-code (schar buffer (+ j 2)))
-			     (char-code (schar buffer (+ j 3)))))))
+        for j of-type (integer 0 #.most-positive-fixnum)
+        from offset to (+ offset 63) by 4
+        do
+        (setf (ub32-aref block i)
+              (assemble-ub32 (char-code (schar buffer j))
+                             (char-code (schar buffer (+ j 1)))
+                             (char-code (schar buffer (+ j 2)))
+                             (char-code (schar buffer (+ j 3)))))))
 
 (defun fill-block (block buffer offset)
   "Convert a complete 64 byte input vector segment into the given 16
@@ -386,9 +386,9 @@ word MD5 block.  This currently works on (unsigned-byte 8) and
 character simple-arrays, via the functions `fill-block-ub8' and
 `fill-block-char' respectively."
   (declare (type (integer 0 #.(- most-positive-fixnum 64)) offset)
-	   (type md5-block block)
-	   (type (simple-array * (*)) buffer)
-	   (optimize (speed 3) (safety 0) (space 0) (debug 0)
+           (type md5-block block)
+           (type (simple-array * (*)) buffer)
+           (optimize (speed 3) (safety 0) (space 0) (debug 0)
                      #+lw-int32 (float 0) #+lw-int32 (hcl:fixnum-safety 0)))
   (etypecase buffer
     ((simple-array (unsigned-byte 8) (*))
@@ -404,19 +404,19 @@ character simple-arrays, via the functions `fill-block-ub8' and
 in regs.  Returns a (simple-array (unsigned-byte 8) (16))."
   (declare (optimize (speed 3) (safety 0) (space 0) (debug 0)
                      #+lw-int32 (float 0) #+lw-int32 (hcl:fixnum-safety 0))
-	   (type md5-regs regs))
+           (type md5-regs regs))
   (let ((result (make-array 16 :element-type '(unsigned-byte 8))))
     (declare (type (simple-array (unsigned-byte 8) (16)) result))
     (macrolet ((frob (reg offset)
-		 (let ((var (gensym)))
-		   `(let ((,var #+lw-int32 (sys:int32-to-integer ,reg)
+                 (let ((var (gensym)))
+                   `(let ((,var #+lw-int32 (sys:int32-to-integer ,reg)
                                 #-lw-int32 ,reg))
-		      (declare (type (unsigned-byte 32) ,var))
-		      (setf
-		       (aref result ,offset) (ldb (byte 8 0) ,var)
-		       (aref result ,(+ offset 1)) (ldb (byte 8 8) ,var)
-		       (aref result ,(+ offset 2)) (ldb (byte 8 16) ,var)
-		       (aref result ,(+ offset 3)) (ldb (byte 8 24) ,var))))))
+                      (declare (type (unsigned-byte 32) ,var))
+                      (setf
+                       (aref result ,offset) (ldb (byte 8 0) ,var)
+                       (aref result ,(+ offset 1)) (ldb (byte 8 8) ,var)
+                       (aref result ,(+ offset 2)) (ldb (byte 8 16) ,var)
+                       (aref result ,(+ offset 3)) (ldb (byte 8 24) ,var))))))
       (frob (md5-regs-a regs) 0)
       (frob (md5-regs-b regs) 4)
       (frob (md5-regs-c regs) 8)
@@ -426,15 +426,15 @@ in regs.  Returns a (simple-array (unsigned-byte 8) (16))."
 ;;; Mid-Level Drivers
 
 (defstruct (md5-state
-	     (:constructor make-md5-state ())
-	     (:copier))
+             (:constructor make-md5-state ())
+             (:copier))
   (regs (initial-md5-regs) :type md5-regs :read-only t)
   (amount 0 :type
-	  #-md5-small-length (integer 0 *)
-	  #+md5-small-length (unsigned-byte 29))
+          #-md5-small-length (integer 0 *)
+          #+md5-small-length (unsigned-byte 29))
   (block (make-ub32-vector 16) :read-only t :type md5-block)
   (buffer (make-array 64 :element-type '(unsigned-byte 8)) :read-only t
-	 :type (simple-array (unsigned-byte 8) (64)))
+         :type (simple-array (unsigned-byte 8) (64)))
   (buffer-index 0 :type (integer 0 63))
   (finalized-p nil))
 
@@ -445,15 +445,15 @@ from-offset and copying count elements into the 64 byte buffer
 starting at buffer-offset."
   (declare (optimize (speed 3) (safety 0) (space 0) (debug 0)
                      #+lw-int32 (float 0) #+lw-int32 (hcl:fixnum-safety 0))
-	   (type (unsigned-byte 29) from-offset)
-	   (type (integer 0 63) count buffer-offset)
-	   (type (simple-array * (*)) from)
-	   (type (simple-array (unsigned-byte 8) (64)) buffer))
+           (type (unsigned-byte 29) from-offset)
+           (type (integer 0 63) count buffer-offset)
+           (type (simple-array * (*)) from)
+           (type (simple-array (unsigned-byte 8) (64)) buffer))
   #+cmu
   (kernel:bit-bash-copy
    from (+ (* vm:vector-data-offset vm:word-bits) (* from-offset vm:byte-bits))
    buffer (+ (* vm:vector-data-offset vm:word-bits)
-	     (* buffer-offset vm:byte-bits))
+             (* buffer-offset vm:byte-bits))
    (* count vm:byte-bits))
   #+sbcl
   (sb-kernel:ub8-bash-copy from from-offset buffer buffer-offset count)
@@ -461,28 +461,28 @@ starting at buffer-offset."
   (etypecase from
     (simple-string
      (loop for buffer-index of-type (integer 0 64) from buffer-offset
-	   for from-index of-type fixnum from from-offset
-	   below (+ from-offset count)
-	   do
-	   (setf (aref buffer buffer-index)
-		 (char-code (schar (the simple-string from) from-index)))))
+           for from-index of-type fixnum from from-offset
+           below (+ from-offset count)
+           do
+           (setf (aref buffer buffer-index)
+                 (char-code (schar (the simple-string from) from-index)))))
     ((simple-array (unsigned-byte 8) (*))
      (loop for buffer-index of-type (integer 0 64) from buffer-offset
-	   for from-index of-type fixnum from from-offset
-	   below (+ from-offset count)
-	   do
-	   (setf (aref buffer buffer-index)
-		 (aref (the (simple-array (unsigned-byte 8) (*)) from)
-		       from-index))))))
+           for from-index of-type fixnum from from-offset
+           below (+ from-offset count)
+           do
+           (setf (aref buffer buffer-index)
+                 (aref (the (simple-array (unsigned-byte 8) (*)) from)
+                       from-index))))))
 
 (defun update-md5-state (state sequence &key (start 0) (end (length sequence)))
   "Update the given md5-state from sequence, which is either a
 simple-string or a simple-array with element-type (unsigned-byte 8),
 bounded by start and end, which must be numeric bounding-indices."
   (declare (type md5-state state)
-	   (type (simple-array * (*)) sequence)
-	   (type fixnum start end)
-	   (optimize (speed 3) (safety 1) (space 0) (debug 1)
+           (type (simple-array * (*)) sequence)
+           (type fixnum start end)
+           (optimize (speed 3) (safety 1) (space 0) (debug 1)
                      #+lw-int32 (float 0) #+lw-int32 (hcl:fixnum-safety 0)))
   (locally 
       (declare (optimize (safety 0) (debug 0)))
@@ -556,7 +556,7 @@ The resulting MD5 message-digest is returned as an array of sixteen
 (unsigned-byte 8) values.  Calling `update-md5-state' after a call to
 `finalize-md5-state' results in unspecified behaviour."
   (declare (type md5-state state)
-	   (optimize (speed 3) (safety 1) (space 0) (debug 1) #+lw-int32 (float 0)))
+           (optimize (speed 3) (safety 1) (space 0) (debug 1) #+lw-int32 (float 0)))
   (locally
       (declare (optimize (safety 0) (debug 0)))
     (or (md5-state-finalized-p state)
@@ -600,7 +600,7 @@ this works for all sequences whose element-type is supported by the
 underlying MD5 routines, on other implementations it only works for 1d
 simple-arrays with such element types."
   (declare (optimize (speed 3) (safety 3) (space 0) (debug 1))
-	   (type vector sequence) (type fixnum start))
+           (type vector sequence) (type fixnum start))
   (locally
       (declare (optimize (safety 1) (debug 0)))
     (let ((state (make-md5-state)))
@@ -841,10 +841,10 @@ according to my additional test suite")
                                               (map 'list #'identity md5-digest-inc))
           do
        (format
-	 *trace-output*
-	 "~2&Test-Case ~D:~%  Input: ~S~%  Required: ~A~%  Returned: ~A~%  ~
+         *trace-output*
+         "~2&Test-Case ~D:~%  Input: ~S~%  Required: ~A~%  Returned: ~A~%  ~
           Returned incrementally: ~A~%"
-	 count source md5-string md5-result-string md5-result-string-inc)
+         count source md5-string md5-result-string md5-result-string-inc)
           when (and (string= md5-string md5-result-string)
                     (string= md5-string md5-result-string-inc))
             do (format *trace-output* "  OK~%")
