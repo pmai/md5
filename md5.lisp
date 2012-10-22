@@ -192,7 +192,7 @@ where a is the intended low-order byte and d the high-order byte."
   (sb-rotate-byte:rotate-byte s (byte 32 0) a)
   #+lw-int32
   (sys:int32-logior (sys:int32<< a s) (int32>>logical a (- 32 s)))
-  #-(or cmu sbcl lw-int32)
+  #-(or :cmu :sbcl :lw-int32)
   (logior (ldb (byte 32 0) (ash a s)) (ash a (- s 32))))
 
 ;;; Section 3.4:  Table T
@@ -457,7 +457,7 @@ starting at buffer-offset."
    (* count vm:byte-bits))
   #+sbcl
   (sb-kernel:ub8-bash-copy from from-offset buffer buffer-offset count)
-  #-(or cmu sbcl)
+  #-(or :cmu :sbcl)
   (etypecase from
     (simple-string
      (loop for buffer-index of-type (integer 0 64) from buffer-offset
@@ -620,7 +620,7 @@ simple-arrays with such element types."
           (declare (ignore real-end))
           (update-md5-state state data :start real-start
                             :end (+ real-start (- end start)))))
-      #-(or cmu sbcl)
+      #-(or :cmu :sbcl)
       (let ((real-end (or end (length sequence))))
         (declare (type fixnum real-end))
         (update-md5-state state sequence :start start :end real-end))
