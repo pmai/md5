@@ -15,4 +15,5 @@
   :maintainer "Pierre R. Mai <pmai@pmsf.de>"
   :licence "Public Domain"
   :version "2.0.0"
+  #+sbcl :depends-on #+sbcl ("sb-rotate-byte")
   :components ((:file "md5")))
