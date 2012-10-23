@@ -677,7 +677,11 @@ in the resulting binary representation."
     (md5sum-sequence
      (ccl:encode-string-to-octets string :external-format external-format
                                   :start start :end end))
-    #-(or :cmu :sbcl (and :lispworks (not :lispworks4)) :ccl)
+    #+allegro
+    (md5sum-sequence
+     (excl:string-to-octets string :external-format external-format
+                             :null-terminate nil :start start :end end))
+    #-(or :cmu :sbcl (and :lispworks (not :lispworks4)) :ccl :allegro)
     (if (<= char-code-limit 256)
         (md5sum-sequence string :start start :end end)
         (error "md5:md5sum-string is not supported for your implementation."))))
