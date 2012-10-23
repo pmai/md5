@@ -56,7 +56,7 @@
 ;;;; authors assume no responsibility for the consequences of any use
 ;;;; of this software.
 
-(defpackage #:md5 (:use #:cl)
+(cl:defpackage #:md5 (:use #:cl)
   (:export
    ;; Low-Level types and functions
    #:md5-regs #:initial-md5-regs #:md5regs-digest
@@ -67,7 +67,7 @@
    ;; High-Level functions on sequences, streams and files
    #:md5sum-sequence #:md5sum-string #:md5sum-stream #:md5sum-file))
 
-(in-package #:md5)
+(cl:in-package #:md5)
 
 #+cmu
 (eval-when (:compile-toplevel)
