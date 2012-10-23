@@ -16,3 +16,7 @@ recommended for legacy uses or uses which do not require a
 cryptographically secure hash.  Use one of the newer SHA-2 and SHA-3
 secure hash standards, or whatever is currently deemed
 cryptographically secure for all other uses.
+
+This software is "as is", and has no warranty of any kind.  The
+authors assume no responsibility for the consequences of any use of
+this software.
