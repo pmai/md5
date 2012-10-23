@@ -15,10 +15,10 @@ Release 2.0.0
    streams is deprecated, since it only ever worked correctly for 8bit
    characters in most implementations.
 
- * This release should work correctly on at least CMUCL, SBCL, ECL,
-   CCL, Lispworks, AllegroCL and ABCL and generally most other
-   conforming implementations.  It has been optimized for CMUCL, SBCL
-   and Lispworks, and should work with adequate performance on most
-   64bit implementations.  Performance on other 32bit implementations
-   is still sub-optimal if they don't support unboxed bit-operations
-   on (unsigned-byte 32).
+ * This release should work correctly on at least recentish versions
+   of CMUCL, SBCL, ECL, CCL, Lispworks, AllegroCL and ABCL and
+   generally most other conforming implementations.  It has been
+   optimized for CMUCL, SBCL and Lispworks, and should work with
+   adequate performance on most 64bit implementations.  Performance on
+   other 32bit implementations is still sub-optimal if they don't
+   support unboxed bit-operations on (unsigned-byte 32).
