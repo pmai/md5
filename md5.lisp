@@ -65,7 +65,7 @@
    #:md5-state #:md5-state-p #:make-md5-state
    #:update-md5-state #:finalize-md5-state
    ;; High-Level functions on sequences, streams and files
-   #:md5sum-sequence #:md5sum-stream #:md5sum-file))
+   #:md5sum-sequence #:md5sum-string #:md5sum-stream #:md5sum-file))
 
 (in-package #:md5)
 
@@ -643,6 +643,44 @@ simple-arrays with such element types."
         (declare (type fixnum real-end))
         (update-md5-state state sequence :start start :end real-end))
       (finalize-md5-state state))))
+
+(defun md5sum-string (string &key (external-format :default) (start 0) end)
+  "Calculate the MD5 message-digest of the binary representation
+of STRING (as octets) in EXTERNAL-FORMAT. The boundaries START
+and END refer to character positions in the string, not to octets
+in the resulting binary representation."
+  (declare (optimize (speed 3) (safety 3) (space 0) (debug 1))
+           (type string string) (type fixnum start))
+  (locally
+    (declare (optimize (safety 1) (debug 0)))
+    #+cmu
+    (md5sum-sequence
+     (stream:string-to-octets string
+                              :external-format external-format
+                              :start start :end end))
+    #+sbcl
+    (md5sum-sequence
+     (sb-ext:string-to-octets string
+                              :external-format external-format
+                              :start start :end end))
+    #+(and :lispworks (not :lispworks4))
+    (let ((external-format (system:merge-ef-specs external-format :utf-8)))
+      (if (equal (external-format:external-format-foreign-type external-format)
+                 '(unsigned-byte 8))
+          (md5sum-sequence 
+           (coerce (external-format:encode-lisp-string string external-format
+                                                       :start start :end end)
+                   '(simple-array (unsigned-byte 8) (*))))
+          (error "External Format ~S does not yield (unsigned-byte 8) vector!"
+                 external-format)))
+    #+ccl
+    (md5sum-sequence
+     (ccl:encode-string-to-octets string :external-format external-format
+                                  :start start :end end))
+    #-(or :cmu :sbcl (and :lispworks (not :lispworks4)) :ccl)
+    (if (<= char-code-limit 256)
+        (md5sum-sequence string :start start :end end)
+        (error "md5:md5sum-string is not supported for your implementation."))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defconstant +buffer-size+ (* 128 1024)
