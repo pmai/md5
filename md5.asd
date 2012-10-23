@@ -1,5 +1,4 @@
 ;;;; MD5 --- RFC 1321 The MD5 Message-Digest Algorithm
-;;;;
 
 (cl:in-package #:cl-user)
 
