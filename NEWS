@@ -1,3 +1,11 @@
+Release 2.0.1
+=============
+
+ * This release fixes problems on 64-bit implementations of Lispworks,
+   where sys:int32 arithmetic can overflow 32-bit values and hence
+   yield wrong results.
+
+
 Release 2.0.0
 =============
 
