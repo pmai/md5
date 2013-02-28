@@ -163,8 +163,11 @@ where a is the intended low-order byte and d the high-order byte."
            (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
   #+cmu
   (kernel:32bit-logical-xor y (kernel:32bit-logical-orc2 x z))
-  #+lw-int32
+  #+(and :lw-int32 (not :lispworks-64bit))
   (sys:int32-logxor y (sys:int32-logorc2 x z))
+  #+(and :lw-int32 :lispworks-64bit)
+  (sys:int32-logand #.(sys:int32-1+ (sys:int32<< (sys:integer-to-int32 #x7FFFFFFF) 1))
+                    (sys:int32-logxor y (sys:int32-logorc2 x z)))
   #-(or :cmu :lw-int32)
   (ldb (byte 32 0) (logxor y (logorc2 x z))))
 
@@ -173,8 +176,13 @@ where a is the intended low-order byte and d the high-order byte."
 (defun mod32+ (a b)
   (declare (type ub32 a b)
            (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
-  #+lw-int32 (sys:int32+ a b)
-  #-lw-int32 (ldb (byte 32 0) (+ a b)))
+  #+(and :lw-int32 (not :lispworks-64bit))
+  (sys:int32+ a b)
+  #+(and :lw-int32 :lispworks-64bit)
+  (sys:int32-logand #.(sys:int32-1+ (sys:int32<< (sys:integer-to-int32 #x7FFFFFFF) 1))
+                    (sys:int32+ a b))
+  #-lw-int32
+  (ldb (byte 32 0) (+ a b)))
 
 #+cmu
 (define-compiler-macro mod32+ (a b)
@@ -208,8 +216,12 @@ where a is the intended low-order byte and d the high-order byte."
                            (ash a (- s 32)))
   #+sbcl
   (sb-rotate-byte:rotate-byte s (byte 32 0) a)
-  #+lw-int32
+  #+(and :lw-int32 (not :lispworks-64bit))
   (sys:int32-logior (sys:int32<< a s) (int32>>logical a (- 32 s)))
+  #+(and :lw-int32 :lispworks-64bit)
+  (sys:int32-logior (sys:int32-logand #.(sys:int32-1+ (sys:int32<< (sys:integer-to-int32 #x7FFFFFFF) 1))
+                                      (sys:int32<< a s))
+                    (int32>>logical a (- 32 s)))
   #-(or :cmu :sbcl :lw-int32)
   (logior (ldb (byte 32 0) (ash a s)) (ash a (- s 32))))
 
@@ -428,7 +440,7 @@ in `regs'.  Returns a (simple-array (unsigned-byte 8) (16))."
     (declare (type (simple-array (unsigned-byte 8) (16)) result))
     (macrolet ((frob (reg offset)
                  (let ((var (gensym)))
-                   `(let ((,var #+lw-int32 (sys:int32-to-integer ,reg)
+                   `(let ((,var #+lw-int32 (ldb (byte 32 0) (sys:int32-to-integer ,reg))
                                 #-lw-int32 ,reg))
                       (declare (type (unsigned-byte 32) ,var))
                       (setf
