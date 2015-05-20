@@ -87,7 +87,14 @@
 #+(and :lispworks (or (not :lispworks4) :lispworks4.4))
 (eval-when (:compile-toplevel :execute)
   (defparameter *old-features* *features*)
-  (pushnew :lw-int32 *features*))
+  (pushnew :lw-int32 *features*)
+  (defmacro lw-int32-no-overflow (value)
+    ;; Prevent overflow in 64-bit prior to LispWorks 7.0.
+    #+(and :lispworks-64bit (or :lispworks5 :lispworks6))
+    `(sys:int32>> (sys:int32<< ,value #.(sys:integer-to-int32 32))
+                  #.(sys:integer-to-int32 32))
+    #-(and :lispworks-64bit (or :lispworks5 :lispworks6))
+    value))
 
 ;;; Section 2:  Basic Datatypes
 
@@ -101,14 +108,16 @@
     "Assemble an ub32 value from the given (unsigned-byte 8) values,
 where a is the intended low-order byte and d the high-order byte."
     #+lw-int32
-    `(sys:int32-logior (sys:int32<< ,d 24)
-                       (sys:int32-logior (sys:int32<< ,c 16)
-                                         (sys:int32-logior (sys:int32<< ,b 8) ,a)))
+    `(lw-int32-no-overflow
+      (sys:int32-logior (sys:int32<< ,d 24)
+                        (sys:int32-logior (sys:int32<< ,c 16)
+                                          (sys:int32-logior (sys:int32<< ,b 8) ,a))))
     #-lw-int32
     `(the ub32 (logior (ash ,d 24) (ash ,c 16) (ash ,b 8) ,a))))
 
 (deftype ub32-vector (length)
-  #+lw-int32 `(sys:simple-int32-vector ,length)
+  #+lw-int32 (declare (ignore length))
+  #+lw-int32 'sys:simple-int32-vector
   #-lw-int32 `(simple-array (unsigned-byte 32) (,length)))
 
 (defmacro make-ub32-vector (length &rest args)
@@ -163,11 +172,8 @@ where a is the intended low-order byte and d the high-order byte."
            (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
   #+cmu
   (kernel:32bit-logical-xor y (kernel:32bit-logical-orc2 x z))
-  #+(and :lw-int32 (not :lispworks-64bit))
-  (sys:int32-logxor y (sys:int32-logorc2 x z))
-  #+(and :lw-int32 :lispworks-64bit)
-  (sys:int32-logand #.(sys:int32-1+ (sys:int32<< (sys:integer-to-int32 #x7FFFFFFF) 1))
-                    (sys:int32-logxor y (sys:int32-logorc2 x z)))
+  #+lw-int32
+  (lw-int32-no-overflow (sys:int32-logxor y (sys:int32-logorc2 x z)))
   #-(or :cmu :lw-int32)
   (ldb (byte 32 0) (logxor y (logorc2 x z))))
 
@@ -176,11 +182,8 @@ where a is the intended low-order byte and d the high-order byte."
 (defun mod32+ (a b)
   (declare (type ub32 a b)
            (optimize (speed 3) (safety 0) (space 0) (debug 0) #+lw-int32 (float 0)))
-  #+(and :lw-int32 (not :lispworks-64bit))
-  (sys:int32+ a b)
-  #+(and :lw-int32 :lispworks-64bit)
-  (sys:int32-logand #.(sys:int32-1+ (sys:int32<< (sys:integer-to-int32 #x7FFFFFFF) 1))
-                    (sys:int32+ a b))
+  #+lw-int32
+  (lw-int32-no-overflow (sys:int32+ a b))
   #-lw-int32
   (ldb (byte 32 0) (+ a b)))
 
@@ -216,11 +219,8 @@ where a is the intended low-order byte and d the high-order byte."
                            (ash a (- s 32)))
   #+sbcl
   (sb-rotate-byte:rotate-byte s (byte 32 0) a)
-  #+(and :lw-int32 (not :lispworks-64bit))
-  (sys:int32-logior (sys:int32<< a s) (int32>>logical a (- 32 s)))
-  #+(and :lw-int32 :lispworks-64bit)
-  (sys:int32-logior (sys:int32-logand #.(sys:int32-1+ (sys:int32<< (sys:integer-to-int32 #x7FFFFFFF) 1))
-                                      (sys:int32<< a s))
+  #+lw-int32
+  (sys:int32-logior (lw-int32-no-overflow (sys:int32<< a s))
                     (int32>>logical a (- 32 s)))
   #-(or :cmu :sbcl :lw-int32)
   (logior (ldb (byte 32 0) (ash a s)) (ash a (- s 32))))
@@ -456,6 +456,9 @@ in `regs'.  Returns a (simple-array (unsigned-byte 8) (16))."
 
 ;;; Mid-Level Drivers
 
+(locally
+  (declare (optimize (speed 3) (safety 1) (space 0) (debug 1)
+                     #+lw-int32 (float 0)))
 (defstruct (md5-state
              (:constructor make-md5-state ())
              (:copier))
@@ -468,6 +471,7 @@ in `regs'.  Returns a (simple-array (unsigned-byte 8) (16))."
          :type (simple-array (unsigned-byte 8) (64)))
   (buffer-index 0 :type (integer 0 63))
   (finalized-p nil))
+)
 
 (declaim (inline copy-to-buffer))
 (defun copy-to-buffer (from from-offset count buffer buffer-offset)

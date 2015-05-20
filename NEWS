@@ -1,3 +1,12 @@
+Release 2.0.2
+=============
+
+ * This release adds support for LispWorks 7.0, reworking the fixes
+   for 64-bit implementations of Lispworks in 2.0.1 and incorrect
+   use of the sys:simple-int32-vector type.  Patch supplied by
+   Martin Simmons from LispWorks.
+
+
 Release 2.0.1
 =============
 
