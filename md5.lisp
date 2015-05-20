@@ -676,7 +676,8 @@ positions in the string, not to octets in the resulting binary
 representation.  The permissible external format specifiers are
 determined by the underlying implementation."
   (declare (optimize (speed 3) (safety 3) (space 0) (debug 1))
-           (type string string) (type fixnum start))
+           (type string string) (type fixnum start)
+           (ignorable external-format))
   (locally
     (declare (optimize (safety 1) (debug 0)))
     #+cmu

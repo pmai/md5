@@ -6,6 +6,9 @@ Release 2.0.2
    use of the sys:simple-int32-vector type.  Patch supplied by
    Martin Simmons from LispWorks.
 
+ * Minor fix to prevent style-warnings for implementations with no
+   support for md5sum-string.
+
 
 Release 2.0.1
 =============
