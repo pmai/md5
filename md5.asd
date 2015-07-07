@@ -15,5 +15,8 @@
   :maintainer "Pierre R. Mai <pmai@pmsf.de>"
   :licence "Public Domain"
   :version "2.0.2"
-  #+sbcl :depends-on #+sbcl ("sb-rotate-byte")
+  :depends-on (#+sbcl "sb-rotate-byte"
+               #-(or :cmu :sbcl
+                     (and :lispworks (not :lispworks4)) :ccl :allegro)
+               :flexi-streams)
   :components ((:file "md5")))
