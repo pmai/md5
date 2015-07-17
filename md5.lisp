@@ -711,7 +711,12 @@ determined by the underlying implementation."
     #-(or :cmu :sbcl (and :lispworks (not :lispworks4)) :ccl :allegro)
     (if (<= char-code-limit 256)
         (md5sum-sequence string :start start :end end)
-        (error "md5:md5sum-string is not supported for your implementation."))))
+        (md5sum-sequence
+         (flexi-streams:string-to-octets string
+                                         :external-format
+                                         (if (eq external-format :default)
+                                             :UTF-8
+                                             external-format))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defconstant +buffer-size+ (* 128 1024)
