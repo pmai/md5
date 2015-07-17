@@ -17,6 +17,7 @@
   :version "2.0.2"
   :depends-on (#+sbcl "sb-rotate-byte"
                #-(or :cmu :sbcl
-                     (and :lispworks (not :lispworks4)) :ccl :allegro)
-               :flexi-streams)
+                     (and :lispworks (not :lispworks4))
+                     :ccl :allegro)
+               "flexi-streams")
   :components ((:file "md5")))

@@ -712,7 +712,11 @@ determined by the underlying implementation."
     (if (<= char-code-limit 256)
         (md5sum-sequence string :start start :end end)
         (md5sum-sequence
-         (flexi-streams:string-to-octets string)))))
+         (flexi-streams:string-to-octets string
+                                         :external-format
+                                         (if (eq external-format :default)
+                                             :UTF-8
+                                             external-format))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defconstant +buffer-size+ (* 128 1024)
