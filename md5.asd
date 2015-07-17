@@ -14,7 +14,7 @@
   :author "Pierre R. Mai <pmai@pmsf.de>"
   :maintainer "Pierre R. Mai <pmai@pmsf.de>"
   :licence "Public Domain"
-  :version "2.0.2"
+  :version "2.0.3"
   :depends-on (#+sbcl "sb-rotate-byte"
                #-(or :cmu :sbcl
                      (and :lispworks (not :lispworks4))

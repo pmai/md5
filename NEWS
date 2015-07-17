@@ -1,3 +1,10 @@
+Release 2.0.3
+=============
+
+ * Add support for md5sum-string for other implementations through
+   through flexi-streams.  Patch supplied by Daniel Kochmanski.
+
+
 Release 2.0.2
 =============
 
