@@ -18,7 +18,7 @@ install:
 
 script:
         - cl -e '(pushnew :md5-testing cl:*features*)
-           (asdf:load-system "md5")
+           (ql:quickload "md5")
            (unless (md5::test-rfc1321)
              (uiop:quit 1))
            (unless (md5::test-other)
