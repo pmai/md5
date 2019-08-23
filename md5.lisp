@@ -1,3 +1,5 @@
+;;;; -*- Mode: LISP; Base: 10; Syntax: ANSI-Common-lisp; Package: MD5 -*-
+
 ;;;; This file implements The MD5 Message-Digest Algorithm, as defined in
 ;;;; RFC 1321 by R. Rivest, published April 1992.
 ;;;;
@@ -55,17 +57,6 @@
 ;;;; This software is "as is", and has no warranty of any kind.  The
 ;;;; authors assume no responsibility for the consequences of any use
 ;;;; of this software.
-
-(cl:defpackage #:md5 (:use #:cl)
-  (:export
-   ;; Low-Level types and functions
-   #:md5-regs #:initial-md5-regs #:md5regs-digest
-   #:update-md5-block #:fill-block #:fill-block-ub8 #:fill-block-char
-   ;; Mid-Level types and functions
-   #:md5-state #:md5-state-p #:make-md5-state
-   #:update-md5-state #:finalize-md5-state
-   ;; High-Level functions on sequences, streams and files
-   #:md5sum-sequence #:md5sum-string #:md5sum-stream #:md5sum-file))
 
 (cl:in-package #:md5)
 
