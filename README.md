@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/pmai/md5.svg?branch=master)](https://travis-ci.org/pmai/md5)
+[![Build Status](https://github.com/pmai/md5/actions/workflows/ci.yml/badge.svg)](https://github.com/pmai/md5/actions/workflows/ci.yml)
 
 This package implements The MD5 Message-Digest Algorithm, as defined
 in [RFC 1321][] by R. Rivest, published April 1992.
