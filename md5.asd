@@ -1,3 +1,4 @@
+;;;; -*- Mode: LISP; Base: 10; Syntax: ANSI-Common-lisp; -*-
 ;;;; MD5 --- RFC 1321 The MD5 Message-Digest Algorithm
 
 (cl:in-package #:cl-user)
@@ -20,4 +21,5 @@
                      (and :lispworks (not :lispworks4))
                      :ccl :allegro)
                "flexi-streams")
-  :components ((:file "md5")))
+  :components ((:file "package")
+	       (:file "md5")))
